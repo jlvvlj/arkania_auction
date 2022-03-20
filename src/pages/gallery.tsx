@@ -34,7 +34,7 @@ export async function getServerSideProps() {
     assets: OpenSeaAsset[];
     estimatedCount: number;
   } = await seaport.api.getAssets({
-    collection_slug: process.env.OPEN_SEA_COLLECTION_SLUG,
+    collection_slug: "nft-collectible-uurx5sz8ox",
     include_orders: true,
   } as any);
 

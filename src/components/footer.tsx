@@ -77,11 +77,9 @@ function Footer ({size}) {
           }}
         >
           <LabelSmall className={css({color: theme.colors.contentPrimary})}>
-            Created with OpenSea whitelable template
           </LabelSmall>
           <div style={{marginTop: 10}} />
           <a
-            href='https://github.com/nawangwe/opensea-whitelabel-website-template'
             target='_blank'
           >
             <FaGithub

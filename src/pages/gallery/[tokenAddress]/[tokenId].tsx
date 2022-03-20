@@ -2,10 +2,11 @@ import * as React from 'react';
 import {Grid, Cell, BEHAVIOR} from 'baseui/layout-grid';
 import {SizeMeProps, withSize} from 'react-sizeme';
 import * as Web3 from 'web3';
+import { ethers } from "ethers";
 import {OpenSeaPort, orderFromJSON} from 'opensea-js';
 import {OpenSeaAsset, OrderSide, Order} from 'opensea-js/lib/types';
 import Page from '../../../containers/page';
-import {HeadingXLarge, ParagraphLarge} from 'baseui/typography';
+import {H1, HeadingXLarge, ParagraphLarge} from 'baseui/typography';
 import {ListItem, ListItemLabel} from 'baseui/list';
 import {
   Modal,
@@ -31,10 +32,14 @@ import {getOSAssetOrder} from '../../../helpers/openseaUtils';
 
 const ReactViewer = dynamic(() => import('react-viewer'), {ssr: false});
 
+const AUCTIONMOD_CONTRACT_ADDRESS = "0xA5EbDDF1F581E3B2b69BcA985B7F58c774Db8089"
+import NFTMOD from '../../../utils/NFTMOD.json'
+
+
 interface GalleryItemDetailsProps extends SizeMeProps {
   asset?: OpenSeaAsset;
   getOrder: Order;
-  fetchOrder: any;
+  //fetchOrder: any;
   tokenAddress?: string;
   tokenId?: string;
 }
@@ -56,21 +61,20 @@ export async function getServerSideProps({params}) {
   });
   const asset = JSON.parse(JSON.stringify(assetResponse));
 
-  // using OS API and parse thru orderFromJSON to get valid order obj, this is temporary as the opensea sdk is not working as expected
+  /* // using OS API and parse thru orderFromJSON to get valid order obj, this is temporary as the opensea sdk is not working as expected
   let fetchOrder = await getOSAssetOrder({
     tokenAddress,
     tokenId,
     orderSide: OrderSide.Sell,
-  });
+  }); */
 
-  if (!fetchOrder) fetchOrder = {}
+ /*  if (!fetchOrder) fetchOrder = {} */
 
-  return {props: {asset, fetchOrder, tokenAddress, tokenId}};
+  return {props: {asset, tokenAddress, tokenId}};
 }
 
 function GalleryItemDetails({
   asset,
-  fetchOrder,
   size,
 }: GalleryItemDetailsProps) {
   const [css] = useStyletron();
@@ -84,9 +88,181 @@ function GalleryItemDetails({
   const [connected] = connectedValue;
   const [seaport, setSeaport] = React.useState(null);
   const [showImageViewer, setShowImageViewer] = React.useState(false);
+  const [bid, setBid] = React.useState("");
+  const [highestBid, sethighestBid] = React.useState(null);
+  //const sellOrder = asset.sellOrders.length > 0 ? asset.sellOrders[0] : null;
+  //const buyOrder = asset.buyOrders.length > 0 ? asset.buyOrders[0] : null;
+  
+  const askContractToMint = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        
+        // This is the minting transaction.
+          console.log("Your wallet will be opened to pay gas for this minting transaction.")
+          let nftTxn = await connectedContract.mintTenNFTs();
+  
+          console.log("Currently Mining...")
+          await nftTxn.wait();
+          console.log(nftTxn);
+          console.log(`Minted, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const askContractToStartAuction = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        
+        // This is the minting transaction.
+          console.log("Your wallet will be opened to pay gas for this minting transaction.")
+          let nftTxn = await connectedContract.startAuction(9);
+  
+          console.log("Starting auction...")
+          await nftTxn.wait();
+          console.log(nftTxn);
+          console.log(`Minted, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const askContractToSubmitBid = async (bid) => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        
+        // This is the minting transaction.
+          console.log("Your wallet will be opened to pay gas for this transaction.")
+          let nftTxn = await connectedContract.submitBid(9, { value: ethers.utils.parseEther(bid) });
+  
+          console.log("Registering bid...")
+          setShowTransactionModal(true)
+          setDialogMessage("Registering bid...")
+          await nftTxn.wait();
+          setShowTransactionModal(false)
+          console.log(nftTxn);
+          setShowTransactionModal(true)
+          setDialogMessage(`You submited a Bid for ${bid} Eth, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`)
+          console.log(`Bid submited, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+          sethighestBid(bid)
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const askContractwithdrawFromAuction = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        
+        // This is the minting transaction.
+          setShowTransactionModal(true)
+          console.log("Your wallet will be opened to pay gas for this transaction.")
+          setDialogMessage("Withdrawing from auction...")
+          let nftTxn = await connectedContract.withdrawFromAuction(9);
+          console.log("Sending NFT...")
+          setDialogMessage("Sending NFT...")
+          await nftTxn.wait();
+          console.log(nftTxn);
+          console.log(`Sent, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+          setDialogMessage(`Sent, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`)
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const askContractTokensOfOwner = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        
+        // This is the minting transaction.
+          console.log("Your wallet will be opened to pay gas for this transaction.")
+          let nftTxn = await connectedContract.tokensOfOwner();
+  
+          console.log("Getting owner tokens information...")
+          await nftTxn.wait();
+          console.log(nftTxn);
+          console.log(`Retrieved, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const askContractToWithdraw = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        
+        // This is the minting transaction.
+          console.log("Your wallet will be opened to pay gas for this transaction.")
+          let nftTxn = await connectedContract.withdraw();
+  
+          console.log("Withdrawing...")
+          await nftTxn.wait();
+          console.log(nftTxn);
+          console.log(`Withdrawn, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
 
-  const sellOrder = asset.sellOrders.length > 0 ? asset.sellOrders[0] : null;
-  const buyOrder = asset.buyOrders.length > 0 ? asset.buyOrders[0] : null;
+  const submitBid = (e) => {
+    e.preventDefault();
+    let stringBid = bid.toString();
+    askContractToSubmitBid(stringBid);
+  };
 
   React.useEffect(() => {
     if (provider != null) {
@@ -104,17 +280,17 @@ function GalleryItemDetails({
     }
   }, [provider]);
 
-  const initiatePurchase = (sellOrder) => {
+  const initiatePurchase = () => {
     const buyAsset = async () => {
       if (asset.owner.address != address) {
         try {
           setCreatingOrder(true);
           setShowTransactionModal(true);
 
-          const parsedFetchOrder = orderFromJSON(fetchOrder);
+          //const parsedFetchOrder = orderFromJSON(fetchOrder);
 
           await seaport.fulfillOrder({
-            order: parsedFetchOrder, // change the order here to see diff results
+            //order: parsedFetchOrder, // change the order here to see diff results
             accountAddress: address,
           });
           setDialogMessage('Order was a success!');
@@ -227,10 +403,10 @@ function GalleryItemDetails({
                         )}
                   </ListItemLabel>
                 </ListItem>
+                 
               )}
 
-              {asset.sellOrders.length > 0 && (
-                <ListItem
+               {/*  <ListItem
                   overrides={{
                     Content: {style: {paddingLeft: 0, marginLeft: 0}},
                   }}
@@ -238,18 +414,47 @@ function GalleryItemDetails({
                   <ListItemLabel description="Price">
                     {getPriceLabel(asset.sellOrders[0])}
                   </ListItemLabel>
+                </ListItem> */}
+              {connected ? (
+                <>
+                <Button onClick={askContractToStartAuction}>Start Auction</Button>
+                <Button onClick={askContractwithdrawFromAuction}>Withdraw NFT</Button>
+                <Button onClick={askContractToWithdraw}>Withdraw Higest Bid </Button>
+                <ListItem
+                overrides={{
+                  Content: {style: {paddingLeft: 0, marginLeft: 0}},
+                }}>
+                  <ListItemLabel description={highestBid}>
+                 Current Highest Bid
+                  </ListItemLabel>
                 </ListItem>
-              )}
+                <ListItem>           
+                  <form onSubmit={submitBid}>
+                    <label>
+                      <input
+                      style={{width: '50%', marginRight: '10px', fontSize: '1.5rem'}}
+                        type="text"
+                        value={bid}
+                        onChange={e => setBid(e.target.value)}
+                      />
+                    </label>
+                    <Button type="submit" >Submit Bid</Button>
+                  </form>
+                </ListItem>
+                
+                </>
+              ) : <h1 style={{color:"white", fontFamily: "Helvetica Neue", fontSize: "23px"}}>Connect your wallet above to bid on this item.</h1>}
+              
             </ul>
 
             {(() => {
               if (connected && asset.lastSale) {
                 if (
                   asset.lastSale.transaction.fromAccount.address.toLowerCase() ===
-                    address.toLowerCase() ||
+                    address.toLowerCase() /* ||
                   (sellOrder &&
                     sellOrder.makerAccount.address.toLowerCase() ===
-                      address.toLowerCase())
+                      address.toLowerCase()) */
                 ) {
                   return (
                     <Tag
@@ -262,16 +467,16 @@ function GalleryItemDetails({
                   );
                 }
               }
-            })()}
+            })}
 
             {(() => {
-              if (sellOrder) {
+              /* if (sellOrder) { */
                 if (connected) {
                   if (
                     (asset.lastSale &&
                       asset.lastSale.transaction.fromAccount.address ===
-                        address.toLowerCase()) ||
-                    sellOrder.makerAccount === address
+                        address.toLowerCase()) /* ||
+                    sellOrder.makerAccount === address */
                   ) {
                     return <div />;
                   } else {
@@ -279,16 +484,17 @@ function GalleryItemDetails({
                       <Button
                         disabled={asset.owner.address == address}
                         onClick={() => {
-                          initiatePurchase(sellOrder);
-                        }}
-                      >{`Buy for ${getPriceLabel(sellOrder)}`}</Button>
+                          //initiatePurchase(sellOrder);
+                        }}>
+                       {/*  {`Buy for ${getPriceLabel(sellOrder)}`} */}
+                        </Button>
                     );
                   }
                 } else {
                   return <Button kind="secondary">Connect Wallet</Button>;
                 }
-              }
-            })()}
+              })
+            }
           </Cell>
         </Grid>
       </Page>

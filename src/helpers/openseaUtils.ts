@@ -7,7 +7,7 @@ export const getOSAssetOrder = async ({tokenAddress, tokenId, orderSide}) => {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'X-API-KEY': process.env.OPEN_SEA_API_KEY,
+        //'X-API-KEY': process.env.OPEN_SEA_API_KEY,
       },
     },
   )
