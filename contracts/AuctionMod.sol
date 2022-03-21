@@ -18,15 +18,12 @@ contract NFTMOD is ERC721Enumerable, Ownable {
         uint tokenID; 
     }
     
-
     event AuctionCreated(
         uint indexed auctionID,
         uint indexed tokenID,
         uint startTime,
         uint endTime 
     );
-
-
 
     event BidSubmitted(
         uint indexed auctionID,
@@ -63,10 +60,10 @@ contract NFTMOD is ERC721Enumerable, Ownable {
 
     function startAuction(uint tokenID) public onlyOwner() returns(uint) {
         uint prevAuctionID=currentTokenAuctionMapping[tokenID];
-        require(auctions[prevAuctionID].endTime<block.timestamp,"Auction of the same NFT is ongoing");
+        require(auctions[prevAuctionID].endTime<block.timestamp,"Auction of this NFT is already ongoing");
         uint currentAuctionID=_auctionIDs.current();
         auctions[currentAuctionID].startTime=block.timestamp;
-        auctions[currentAuctionID].endTime=block.timestamp+1 minutes;
+        auctions[currentAuctionID].endTime=block.timestamp+10 minutes;
         auctions[currentAuctionID].tokenID=tokenID;
         currentTokenAuctionMapping[tokenID]=currentAuctionID;
         emit AuctionCreated(
@@ -106,9 +103,10 @@ contract NFTMOD is ERC721Enumerable, Ownable {
         );     
     }
 
-    function withdrawFromAuction(uint tokenID) public{
-        //require(auctions[auctionID].endTime<block.timestamp,"Auction is still ongoing");
+    function withdrawNFT(uint tokenID) public{
+       
         uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+        require(auctions[currentAuctionID].endTime<block.timestamp,"Auction is still ongoing");
 
         if(auctions[currentAuctionID].highestBidder==msg.sender){
             _transfer(owner(), msg.sender, auctions[currentAuctionID].tokenID);
@@ -118,6 +116,14 @@ contract NFTMOD is ERC721Enumerable, Ownable {
                 msg.sender
             );
         }
+    }
+
+    function withdrawHighestBid(uint tokenID) public payable onlyOwner {
+        uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+        require(auctions[currentAuctionID].endTime<block.timestamp,"Auction is still ongoing");
+        require(auctions[currentAuctionID].highestBid > 0, "No bid left to withdraw");
+        (bool success, ) = (msg.sender).call{value: auctions[currentAuctionID].highestBid}("");
+        require(success, "Transfer failed.");
     }
 
     function mintTenNFTs() public onlyOwner {

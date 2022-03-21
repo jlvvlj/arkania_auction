@@ -34,6 +34,7 @@ const ReactViewer = dynamic(() => import('react-viewer'), {ssr: false});
 
 const AUCTIONMOD_CONTRACT_ADDRESS = "0xA5EbDDF1F581E3B2b69BcA985B7F58c774Db8089"
 import NFTMOD from '../../../utils/NFTMOD.json'
+import { clearConfigCache } from 'prettier';
 
 
 interface GalleryItemDetailsProps extends SizeMeProps {
@@ -90,8 +91,31 @@ function GalleryItemDetails({
   const [showImageViewer, setShowImageViewer] = React.useState(false);
   const [bid, setBid] = React.useState("");
   const [highestBid, sethighestBid] = React.useState(null);
+  const [currentAccount, setCurrentAccount] = React.useState("");
+
   //const sellOrder = asset.sellOrders.length > 0 ? asset.sellOrders[0] : null;
   //const buyOrder = asset.buyOrders.length > 0 ? asset.buyOrders[0] : null;
+
+  const checkIfWalletIsConnected = async () => {
+    const { ethereum } = window;
+
+    if (!ethereum) {
+        console.log("Make sure you have metamask!");
+        return;
+    } else {
+        console.log("We have the ethereum object", ethereum);
+    }
+
+    const accounts = await ethereum.request({ method: 'eth_accounts' });
+
+    if (accounts.length !== 0) {
+        const account = accounts[0];
+        console.log("Found an authorized account:", account);
+        setCurrentAccount(account)
+    } else {
+        console.log("No authorized account found")
+    }
+}
   
   const askContractToMint = async () => {
     try {
@@ -127,7 +151,7 @@ function GalleryItemDetails({
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
         const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
-        
+
         // This is the minting transaction.
           console.log("Your wallet will be opened to pay gas for this minting transaction.")
           let nftTxn = await connectedContract.startAuction(9);
@@ -263,6 +287,11 @@ function GalleryItemDetails({
     let stringBid = bid.toString();
     askContractToSubmitBid(stringBid);
   };
+
+  React.useEffect(() => {
+    checkIfWalletIsConnected();
+    console.log(address)
+  }, [])
 
   React.useEffect(() => {
     if (provider != null) {
@@ -415,20 +444,28 @@ function GalleryItemDetails({
                     {getPriceLabel(asset.sellOrders[0])}
                   </ListItemLabel>
                 </ListItem> */}
+              
+              
               {connected ? (
                 <>
-                <Button onClick={askContractToStartAuction}>Start Auction</Button>
-                <Button onClick={askContractwithdrawFromAuction}>Withdraw NFT</Button>
-                <Button onClick={askContractToWithdraw}>Withdraw Higest Bid </Button>
-                <ListItem
+                {address == "0xE332D0F29eCBf2E90bAb8D227a8D8571C6f819F1" ? 
+                (  
+                  <>
+                    <Button onClick={askContractToStartAuction}>Start Auction</Button>
+                  </>
+                ) : 
+                (
+                  <>
+                    <Button onClick={askContractwithdrawFromAuction}>Withdraw NFT</Button>
+                    <ListItem
                 overrides={{
                   Content: {style: {paddingLeft: 0, marginLeft: 0}},
                 }}>
                   <ListItemLabel description={highestBid}>
                  Current Highest Bid
                   </ListItemLabel>
-                </ListItem>
-                <ListItem>           
+                    </ListItem>
+                    <ListItem>           
                   <form onSubmit={submitBid}>
                     <label>
                       <input
@@ -440,8 +477,10 @@ function GalleryItemDetails({
                     </label>
                     <Button type="submit" >Submit Bid</Button>
                   </form>
-                </ListItem>
-                
+                    </ListItem>
+                  </>
+                )
+                }
                 </>
               ) : <h1 style={{color:"white", fontFamily: "Helvetica Neue", fontSize: "23px"}}>Connect your wallet above to bid on this item.</h1>}
               
