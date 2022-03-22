@@ -17,7 +17,7 @@ async function main() {
     console.log("Owner:", owner.address);
 
     // Get contract that we want to deploy
-    const contractFactory = await hre.ethers.getContractFactory("NFT");
+    const contractFactory = await hre.ethers.getContractFactory("NFT_Auction");
 
     // Deploy contract with the correct constructor arguments
     const contract = await contractFactory.deploy(baseTokenURI);

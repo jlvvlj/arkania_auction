@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract NFTMOD is ERC721Enumerable, Ownable {
+contract NFT_Auction is ERC721Enumerable, Ownable {
     using SafeMath for uint256;
     using Counters for Counters.Counter;
     
@@ -23,6 +23,11 @@ contract NFTMOD is ERC721Enumerable, Ownable {
         uint indexed tokenID,
         uint startTime,
         uint endTime 
+    );
+
+     event AuctionEnded(
+        uint indexed auctionID,
+        uint indexed tokenID
     );
 
     event BidSubmitted(
@@ -44,11 +49,17 @@ contract NFTMOD is ERC721Enumerable, Ownable {
         address bidder
     );
 
+    event NFTsWereMinted();
+
     mapping(uint=>Auction) public auctions;
     //auctionID=>bidderAddress=>bidAmount
     mapping(uint=>mapping(address=>uint)) biddings;
     //tokenID=>auctionID
     mapping(uint=>uint) currentTokenAuctionMapping;
+
+
+    // Set to true when 10 NFTs are minted
+    bool NFTsMinted = false;
 
     Counters.Counter private _auctionIDs;
     Counters.Counter private _tokenIds;
@@ -60,10 +71,11 @@ contract NFTMOD is ERC721Enumerable, Ownable {
 
     function startAuction(uint tokenID) public onlyOwner() returns(uint) {
         uint prevAuctionID=currentTokenAuctionMapping[tokenID];
-        require(auctions[prevAuctionID].endTime<block.timestamp,"Auction of this NFT is already ongoing");
-        uint currentAuctionID=_auctionIDs.current();
+        require(auctions[prevAuctionID].endTime<block.timestamp,"Auction of this NFT was already started");
+        uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+        require(NFTsMinted == true, "NFTs shoud be minted first.");
         auctions[currentAuctionID].startTime=block.timestamp;
-        auctions[currentAuctionID].endTime=block.timestamp+10 minutes;
+        auctions[currentAuctionID].endTime=block.timestamp + 10 minutes;
         auctions[currentAuctionID].tokenID=tokenID;
         currentTokenAuctionMapping[tokenID]=currentAuctionID;
         emit AuctionCreated(
@@ -77,30 +89,70 @@ contract NFTMOD is ERC721Enumerable, Ownable {
     }
 
     function submitBid(uint tokenID) payable public{
-       uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+        uint currentAuctionID=currentTokenAuctionMapping[tokenID];
         require(auctions[currentAuctionID].tokenID==tokenID,"Invalid Token ID");
         require(auctions[currentAuctionID].endTime>block.timestamp,"Auction for the token has ended");
-        uint bidAmount=msg.value.add(biddings[currentAuctionID][msg.sender]);
-           
+        uint currentBid = msg.value;
+        uint previousBid= biddings[currentAuctionID][msg.sender];
         require(
-            auctions[tokenID].highestBid<bidAmount
+            auctions[tokenID].highestBid<currentBid
             ,"Bid Amount should be higher than the highest Bid");
-             if(biddings[currentAuctionID][msg.sender]>0)
-            {
-                uint amount = biddings[currentAuctionID][msg.sender];
-                payable(msg.sender).transfer(amount);
-            }
-        biddings[currentAuctionID][msg.sender]=bidAmount;
-        auctions[currentAuctionID].highestBid=bidAmount;
+             if(previousBid>0){payable(msg.sender).transfer(previousBid);}
+        biddings[currentAuctionID][msg.sender]=currentBid;
+        auctions[currentAuctionID].highestBid=currentBid;
         auctions[currentAuctionID].highestBidder=msg.sender;
 
 
         emit BidSubmitted(
             currentAuctionID,
             tokenID,
-            bidAmount,
+            currentBid,
             msg.sender
         );     
+    }
+
+    function mintNFTs(uint _count) public payable {
+        for (uint i = 0; i < _count; i++) {
+            _mintSingleNFT();
+        }
+    }
+
+    function _mintSingleNFT() private {
+        uint newTokenID = _tokenIds.current();
+        _safeMint(msg.sender, newTokenID);
+        _tokenIds.increment();
+    }
+
+    function mintTenNFTs() public onlyOwner {
+
+        for (uint i = 0; i < 10; i++) {
+            _mintSingleNFT();
+        }
+
+        NFTsMinted = true;
+
+        emit NFTsWereMinted();
+
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return baseTokenURI;
+    }
+
+    function setBaseURI(string memory _baseTokenURI) public onlyOwner {
+        baseTokenURI = _baseTokenURI;
+    }
+
+ 
+
+    function getHighestBid(uint tokenID) public view returns (uint highestBid) {
+          uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+          return auctions[currentAuctionID].highestBid;
+    }
+
+    function getHighestBidder(uint tokenID) public view returns (address highestBidder) {
+          uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+          return auctions[currentAuctionID].highestBidder;
     }
 
     function withdrawNFT(uint tokenID) public{
@@ -118,38 +170,13 @@ contract NFTMOD is ERC721Enumerable, Ownable {
         }
     }
 
-    function withdrawHighestBid(uint tokenID) public payable onlyOwner {
+    function withdrawLastBid(uint tokenID) public{
         uint currentAuctionID=currentTokenAuctionMapping[tokenID];
         require(auctions[currentAuctionID].endTime<block.timestamp,"Auction is still ongoing");
-        require(auctions[currentAuctionID].highestBid > 0, "No bid left to withdraw");
-        (bool success, ) = (msg.sender).call{value: auctions[currentAuctionID].highestBid}("");
-        require(success, "Transfer failed.");
-    }
-
-    function mintTenNFTs() public onlyOwner {
-
-        for (uint i = 0; i < 10; i++) {
-            _mintSingleNFT();
-        }
-    }
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseTokenURI;
-    }
-
-    function setBaseURI(string memory _baseTokenURI) public onlyOwner {
-        baseTokenURI = _baseTokenURI;
-    }
-
-    function mintNFTs(uint _count) public payable {
-        for (uint i = 0; i < _count; i++) {
-            _mintSingleNFT();
-        }
-    }
-
-    function _mintSingleNFT() private {
-        uint newTokenID = _tokenIds.current();
-        _safeMint(msg.sender, newTokenID);
-        _tokenIds.increment();
+        require(auctions[currentAuctionID].highestBidder!=msg.sender, "You won the auction and cannot take your bid back!");
+        uint previousBid= biddings[currentAuctionID][msg.sender];
+        biddings[currentAuctionID][msg.sender] = 0;
+        if(previousBid>0){payable(msg.sender).transfer(previousBid);}
     }
 
     function tokensOfOwner(address _owner) external view returns (uint[] memory) {
@@ -161,6 +188,15 @@ contract NFTMOD is ERC721Enumerable, Ownable {
             tokensId[i] = tokenOfOwnerByIndex(_owner, i);
         }
         return tokensId;
+    }
+
+    function endAuction(uint tokenID) public payable onlyOwner {
+        uint currentAuctionID=currentTokenAuctionMapping[tokenID];
+        require(auctions[currentAuctionID].endTime<block.timestamp,"Auction is still ongoing");
+        require(auctions[currentAuctionID].highestBid > 0, "No bid left to withdraw");
+        (bool success, ) = (msg.sender).call{value: auctions[currentAuctionID].highestBid}("");
+        require(success, "Transfer failed.");
+        emit AuctionEnded(currentAuctionID, tokenID);
     }
 
     function withdraw() public payable onlyOwner {

@@ -32,8 +32,9 @@ import {getOSAssetOrder} from '../../../helpers/openseaUtils';
 
 const ReactViewer = dynamic(() => import('react-viewer'), {ssr: false});
 
-const AUCTIONMOD_CONTRACT_ADDRESS = "0xA5EbDDF1F581E3B2b69BcA985B7F58c774Db8089"
-import NFTMOD from '../../../utils/NFTMOD.json'
+const NFT_AUCTION__CONTRACT_ADDRESS = "0x16c954d2c36BAcAc8c5d7095DB2D29C2255BbF19"
+import NFT_Auction from '../../../utils/NFT_Auction.json'
+
 import { clearConfigCache } from 'prettier';
 
 
@@ -96,6 +97,8 @@ function GalleryItemDetails({
   //const sellOrder = asset.sellOrders.length > 0 ? asset.sellOrders[0] : null;
   //const buyOrder = asset.buyOrders.length > 0 ? asset.buyOrders[0] : null;
 
+  
+
   const checkIfWalletIsConnected = async () => {
     const { ethereum } = window;
 
@@ -124,17 +127,20 @@ function GalleryItemDetails({
       if (ethereum) {
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
-        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
         
         // This is the minting transaction.
           console.log("Your wallet will be opened to pay gas for this minting transaction.")
           let nftTxn = await connectedContract.mintTenNFTs();
   
           console.log("Currently Mining...")
+          setShowTransactionModal(true)
+          setDialogMessage("Currently Mining...")
           await nftTxn.wait();
           console.log(nftTxn);
           console.log(`Minted, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
-      
+          setShowTransactionModal(true)
+          setDialogMessage(`Minted, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`)
         } else {
         console.log("Ethereum object doesn't exist!");
       }
@@ -150,16 +156,53 @@ function GalleryItemDetails({
       if (ethereum) {
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
-        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
+
+        // This is the minting transaction.
+        console.log(asset.tokenId)
+          console.log("Your wallet will be opened to pay gas for this minting transaction.")
+    let nftTxn = await connectedContract.startAuction(asset.tokenId);
+  
+          console.log("Starting auction...")
+          setShowTransactionModal(true)
+          setDialogMessage("Starting auction...")
+          await nftTxn.wait();
+          setShowTransactionModal(false)
+          setShowTransactionModal(true)
+          setDialogMessage(`Started, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`)
+          console.log(nftTxn);
+          console.log(`Started, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const askContractToEndAuction = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
 
         // This is the minting transaction.
           console.log("Your wallet will be opened to pay gas for this minting transaction.")
-          let nftTxn = await connectedContract.startAuction(9);
+          let nftTxn = await connectedContract.endAuction(asset.tokenId);
   
-          console.log("Starting auction...")
+          console.log("Ending auction...")
+          setShowTransactionModal(true)
+          setDialogMessage("Ending auction...")
           await nftTxn.wait();
+          setShowTransactionModal(false)
+          setShowTransactionModal(true)
+          setDialogMessage(`Ended, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`)
           console.log(nftTxn);
-          console.log(`Minted, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+          console.log(`Ended, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
       
         } else {
         console.log("Ethereum object doesn't exist!");
@@ -169,6 +212,7 @@ function GalleryItemDetails({
     }
   }
   
+  
   const askContractToSubmitBid = async (bid) => {
     try {
       const { ethereum } = window;
@@ -176,11 +220,11 @@ function GalleryItemDetails({
       if (ethereum) {
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
-        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
         
         // This is the minting transaction.
           console.log("Your wallet will be opened to pay gas for this transaction.")
-          let nftTxn = await connectedContract.submitBid(9, { value: ethers.utils.parseEther(bid) });
+          let nftTxn = await connectedContract.submitBid(asset.tokenId, { value: ethers.utils.parseEther(bid) });
   
           console.log("Registering bid...")
           setShowTransactionModal(true)
@@ -200,20 +244,49 @@ function GalleryItemDetails({
     }
   }
   
-  const askContractwithdrawFromAuction = async () => {
+  const askContractTowithdrawLastBid = async () => {
     try {
       const { ethereum } = window;
   
       if (ethereum) {
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
-        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
         
         // This is the minting transaction.
           setShowTransactionModal(true)
           console.log("Your wallet will be opened to pay gas for this transaction.")
           setDialogMessage("Withdrawing from auction...")
-          let nftTxn = await connectedContract.withdrawFromAuction(9);
+          let nftTxn = await connectedContract.withdrawLastBid(asset.tokenId);
+          console.log("Sending Last Bid back to your account...")
+          setDialogMessage("Sending Last Bid back to your account...")
+          await nftTxn.wait();
+          console.log(nftTxn);
+          console.log(`Sent, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+          setDialogMessage(`Sent, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`)
+      
+        } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const askContractTowithdrawNFT = async () => {
+    try {
+      const { ethereum } = window;
+  
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
+        
+        // This is the minting transaction.
+          setShowTransactionModal(true)
+          console.log("Your wallet will be opened to pay gas for this transaction.")
+          setDialogMessage("Withdrawing from auction...")
+          let nftTxn = await connectedContract.withdrawNFT();
           console.log("Sending NFT...")
           setDialogMessage("Sending NFT...")
           await nftTxn.wait();
@@ -236,7 +309,7 @@ function GalleryItemDetails({
       if (ethereum) {
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
-        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
+        const connectedContract = new ethers.Contract(NFT_AUCTION__CONTRACT_ADDRESS, NFT_Auction.abi, signer);
         
         // This is the minting transaction.
           console.log("Your wallet will be opened to pay gas for this transaction.")
@@ -255,33 +328,6 @@ function GalleryItemDetails({
     }
   }
   
-  const askContractToWithdraw = async () => {
-    try {
-      const { ethereum } = window;
-  
-      if (ethereum) {
-        const provider = new ethers.providers.Web3Provider(ethereum);
-        const signer = provider.getSigner();
-        const connectedContract = new ethers.Contract(AUCTIONMOD_CONTRACT_ADDRESS, NFTMOD.abi, signer);
-        
-        // This is the minting transaction.
-          console.log("Your wallet will be opened to pay gas for this transaction.")
-          let nftTxn = await connectedContract.withdraw();
-  
-          console.log("Withdrawing...")
-          await nftTxn.wait();
-          console.log(nftTxn);
-          console.log(`Withdrawn, the transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
-      
-        } else {
-        console.log("Ethereum object doesn't exist!");
-      }
-    } catch (error) {
-      console.log(error)
-    }
-  }
-  
-
   const submitBid = (e) => {
     e.preventDefault();
     let stringBid = bid.toString();
@@ -292,6 +338,10 @@ function GalleryItemDetails({
     checkIfWalletIsConnected();
     console.log(address)
   }, [])
+
+  React.useEffect(() => {
+                   
+  }, [address])
 
   React.useEffect(() => {
     if (provider != null) {
@@ -448,15 +498,23 @@ function GalleryItemDetails({
               
               {connected ? (
                 <>
-                {address == "0xE332D0F29eCBf2E90bAb8D227a8D8571C6f819F1" ? 
+                {
+                address == "0xE332D0F29eCBf2E90bAb8D227a8D8571C6f819F1" && 
                 (  
                   <>
+                   <Button  onClick={askContractToMint}>Mint NFTs</Button>
+                   <div style ={{marginLeft : 20, marginBottom : 20}}></div>
                     <Button onClick={askContractToStartAuction}>Start Auction</Button>
+                    <div style ={{marginLeft : 20, marginBottom : 20}}></div>
+                    <Button onClick={askContractToEndAuction}>End Auction</Button>
                   </>
-                ) : 
+                ) }
+                  {address != "0xE332D0F29eCBf2E90bAb8D227a8D8571C6f819F1" && 
                 (
                   <>
-                    <Button onClick={askContractwithdrawFromAuction}>Withdraw NFT</Button>
+                    <Button onClick={askContractTowithdrawNFT}>Withdraw NFT</Button>
+                    <div style ={{marginLeft : 20, marginBottom : 20}}></div>
+                    <Button onClick={askContractTowithdrawLastBid}>Withdraw Last Bid</Button>
                     <ListItem
                 overrides={{
                   Content: {style: {paddingLeft: 0, marginLeft: 0}},
